@@ -52,7 +52,7 @@ Facet.prototype.fromPoints = function(pointList) {
 Facet.prototype.setUpperLower = function(pointList,centroid) {
 	this.centroid = centroid;
 	if(pointList.length > 0) {
-		var sign = point2HyperplaneDistance(centroid,this.hyperplaneCoefficients) < 0 ? 1 : -1; // [INFO] Stabilisce se la faccetta e' orientata correttamente
+		var sign = point2HyperplaneDistance(centroid,this.hyperplaneCoefficients) < 0 ? 1 : -1;
 		var maxPoint = pointList[0];
 		var maxDist = point2HyperplaneDistance(pointList[0],this.hyperplaneCoefficients) * sign;
 		var temp;
@@ -215,7 +215,7 @@ function points2HyperplaneCoefficients(pointList) {
 		}
 		coefficients.push(-lastCoefficient);
 	}
-	// [INFO] verifica la lineare indipendenza dei punti passati in input
+	
 	if(coefficients.every(function(item) { return item === 0; })) {
 		coefficients = 0;
 	}
@@ -234,6 +234,7 @@ function point2HyperplaneDistance(point, coefficients) {
 
 /* Convex hull functions definitions */
 
+// Euler tensor for finding independent points
 function indepPts(pointSet) {
 	var eulerTensor = [];
 	for(var i = 0; i < pointSet[0].length; i++) {
@@ -260,7 +261,7 @@ function indepPts(pointSet) {
 			}
 		}
 	}
-	var eigenVector = numeric.transpose(numeric.eig(eulerTensor).E.x); // [TODO] numeric.eig da problemi con autovettori con molteplicita' maggiore di 1
+	var eigenVector = numeric.transpose(numeric.eig(eulerTensor).E.x);
 
 	var baseShiftMatrix = numeric.inv(eigenVector);
 	for(var i = 0; i < translatedPoints.length; i++) {
@@ -302,6 +303,7 @@ function indepPts(pointSet) {
 	return { independentPoints: indepSet, otherPoints: remSet };
 }
 
+// Naive algorithm for finding independent points
 function indepPts2(pointSet) {
 	var dimension = pointSet[0].length;
 	var maxInDim = [];
@@ -340,6 +342,7 @@ function indepPts2(pointSet) {
 	return { independentPoints: indepSet, otherPoints: remSet };
 }
 
+// First version of independent points algorithm
 function independentPoints(pointSet) {
 	if(pointSet === undefined || pointSet === null || pointSet.length < 2) {
 		return { independentPoints:[],otherPoints:pointSet };
@@ -350,7 +353,7 @@ function independentPoints(pointSet) {
 		for(i = 0; i < pointSet[0].length; i++) {
 			independentPoints.independentPoints.push(pointSet[i]);
 		}
-		// [INFO] verifica la lineare indipendenza dei primi d punti
+		
 		var det = points2HyperplaneCoefficients(independentPoints.independentPoints);
 		while(det === 0) {
 			independentPoints.otherPoints.push(independentPoints.independentPoints.shift());
@@ -409,9 +412,9 @@ function centroidEvaluation(convexSet) {
 function updateFacetList(referenceFacet,facetList,convexHullList) {
 	var dividedFacetList = {
 		visibleFacetList : [referenceFacet],
-		hiddenFacetList : convexHullList.concat() // [INFO] Si e' usato il metodo 'concat' per clonare la lista di faccette
+		hiddenFacetList : convexHullList.concat()
 	}
-	// [INFO] Calcolo le faccette visibili e nascoste al punto piu distante della faccetta di riferimento
+	
 	var coplanarCounter = 0;
 	if(point2HyperplaneDistance(referenceFacet.leastPoint,referenceFacet.hyperplaneCoefficients) == 0) {
 		coplanarCounter++;
@@ -433,7 +436,7 @@ function updateFacetList(referenceFacet,facetList,convexHullList) {
 		convexHullList.push(referenceFacet);
 		newFacetList = facetList;
 	} else {
-		// [INFO] Calcolo l'orizzonte visibile come insieme di creste
+		
 		var remainingPoints = [];
 		var horizon = [];
 		for(var i = 0; i < dividedFacetList.visibleFacetList.length; i++) {
@@ -468,8 +471,9 @@ function updateFacetList(referenceFacet,facetList,convexHullList) {
 }
 
 function convexHull(pointList) {
-	//var initialSet = independentPoints(pointList);
-	var initialSet = indepPts2(pointList); // [TODO] verificare correttezza
+	//var initialSet = independentPoints(pointList); // Not safe
+	//var initialSet = indepPts(pointList); // Waiting for a bugfix on Number.js eig() function
+	var initialSet = indepPts2(pointList);
 	var centroid = centroidEvaluation(initialSet.independentPoints);
 	var facetList = makeSimplex(initialSet,centroid);
 	var convexHullList = [];
