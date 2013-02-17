@@ -236,10 +236,11 @@ function point2HyperplaneDistance(point, coefficients) {
 
 // Euler tensor for finding independent points
 function indepPts(pointSet) {
+	var dimension = pointSet[0].length;
 	var eulerTensor = [];
-	for(var i = 0; i < pointSet[0].length; i++) {
+	for(var i = 0; i < dimension; i++) {
 		var row = [];
-		for(var j = 0; j < pointSet[0].length; j++) {
+		for(var j = 0; j < dimension; j++) {
 			row.push(0);
 		}
 		eulerTensor.push(row);
@@ -248,11 +249,11 @@ function indepPts(pointSet) {
 	var translatedPoints = [];
 	for(var i = 0; i < pointSet.length; i++) {
 		var point = pointSet[i].concat();
-		for(var j = 0; j < point.length; j++) {
+		for(var j = 0; j < dimension; j++) {
 			point[j] -= centroid[j];
 		}
 		translatedPoints.push(point);
-		for(var k = 0; k < point.length; k++) {
+		for(var k = 0; k < dimension; k++) {
 			for(var l = k; l < point.length; l++) {
 				eulerTensor[k][l] += (point[k] * point[l]);
 				if(k !== l) {
@@ -261,7 +262,7 @@ function indepPts(pointSet) {
 			}
 		}
 	}
-	var eigenVector = numeric.transpose(numeric.eig(eulerTensor).E.x);
+	var eigenVector = numeric.transpose(numeric.eig(eulerTensor).E.x); // [TODO] numeric.eig da problemi con autovettori con molteplicita' maggiore di 1
 
 	var baseShiftMatrix = numeric.inv(eigenVector);
 	for(var i = 0; i < translatedPoints.length; i++) {
@@ -269,36 +270,47 @@ function indepPts(pointSet) {
 	}
 	
 	var maxInDim = [];
-	for(var d = 0; d < centroid.length; d++) {
-		maxInDim.push(centroid);
+	var origin = [];
+	for(var d = 0; d < dimension; d++) {
+		origin.push(0);
+	}
+	for(var d = 0; d < dimension; d++) {
+		maxInDim.push(origin);
 	}
 
 	var indepSet = [];
 	var remSet = [];
 	var added = false;
 	for(var i = 0; i < translatedPoints.length; i++) {
-		for(var d = 0; d < centroid.length && !added; d++) {
+		added = false;
+		for(var d = 0; d < dimension && !added; d++) {
 			if(Math.abs(maxInDim[d][d]) < Math.abs(translatedPoints[i][d])) {
-				remSet.add([numeric.dot(eigenVector,maxInDim[d])]);
+				if(maxInDim[d] !== origin) {
+					var point = numeric.dot(eigenVector,maxInDim[d]);
+					for(var j = 0; j < dimension; j++) {
+						point[j] += centroid[j];
+					}
+					remSet.push(point);
+				}
 				maxInDim[d] = translatedPoints[i];
 				added = true;
 			}
 		}
 		if(!added) {
-			remSet.add([numeric.dot(eigenVector,translatedPoints[i])]);
+			var point = numeric.dot(eigenVector,translatedPoints[i]);
+			for(var j = 0; j < dimension; j++) {
+				point[j] += centroid[j];
+			}
+			remSet.push(point);
 		}
 	}
-	var coefficients = points2HyperplaneCoefficients(maxInDim);
-	for(var i = 0; i < remSet.length && maxInDim.length !== dimension + 1; i++) {
-		if(point2HyperplaneDistance(remSet[i], coefficients) !== 0) {
-			maxInDim.push(remSet.splice(i,1)[0]);
+	maxInDim.push(origin);
+	for(var d = 0; d < dimension + 1; d++) {
+		var point = numeric.dot(eigenVector,maxInDim[d]);
+		for(var j = 0; j < dimension; j++) {
+			point[j] += centroid[j];
 		}
-	}
-	for(var d = 0; d < maxInDim.length; d++) {
-		indepSet.push(maxInDim[d]);
-	}
-	for(var d = 0; d < maxInDim.length; d++) {
-		indepSet.push(numeric.dot(eigenVector,maxInDim[d]));
+		indepSet.push(point);
 	}
 	return { independentPoints: indepSet, otherPoints: remSet };
 }
